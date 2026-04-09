@@ -2,156 +2,75 @@
   box-sizing: border-box;
 }
 
-body {
+html, body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
   font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
   background: #f3f6fb;
-  color: #1f2937;
 }
 
 .container {
-  width: min(1100px, 92vw);
-  margin: 24px auto;
+  max-width: 1000px;
+  margin: auto;
+  padding: 20px;
 }
 
 h1 {
-  margin-bottom: 8px;
-}
-
-.subtitle {
-  margin-top: 0;
-  color: #475569;
-}
-
-.card {
-  background: #fff;
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  margin-bottom: 18px;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.inline {
-  display: flex;
-  gap: 10px;
-}
-
-input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-}
-
-button {
-  border: none;
-  background: #2563eb;
-  color: #fff;
-  border-radius: 12px;
-  padding: 12px 16px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-button:hover {
-  filter: brightness(1.05);
-}
-
-.status,
-.result {
-  display: grid;
-  gap: 8px;
-  margin-top: 14px;
+  text-align: center;
 }
 
 .layout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
+.card {
+  flex: 1;
+  min-width: 280px;
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+}
+
+/* 🔥 關鍵：限制畫面大小 */
 .videoWrap {
   position: relative;
   width: 100%;
-  max-width: 480px;   /* 重點：直接限制畫面最大寬度 */
-  margin: 0 auto;     /* 置中 */
-  aspect-ratio: 4 / 3; /* 比 16:9 更不會看起來過大 */
-  background: #000;
-  border-radius: 14px;
+  max-width: 400px;   /* ⭐ 控制大小 */
+  margin: auto;
+  aspect-ratio: 4 / 3;
+  background: black;
+  border-radius: 10px;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
+/* 🔥 修正比例 */
 video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #000;
   display: block;
-  z-index: 1;
+}
+
+/* 本機鏡像 */
+#localVideo {
   transform: scaleX(-1);
 }
 
-#remoteVideo {
-  transform: none;
-}
-
+/* 手勢點 */
 canvas {
   position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 2;
+  top: 0;
+  left: 0;
   opacity: 0.4;
-}
-
-.btnRow {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
-
-label {
-  display: block;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-pre {
-  background: #0f172a;
-  color: #e5e7eb;
-  padding: 12px;
-  border-radius: 12px;
-  min-height: 140px;
-  overflow: auto;
-  white-space: pre-wrap;
-}
-
-ol {
-  margin-bottom: 0;
-}
-
-@media (max-width: 900px) {
-  .grid,
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  .inline {
-    flex-direction: column;
-  }
-
-  .videoWrap {
-    max-width: 100%;
-  }
 }
