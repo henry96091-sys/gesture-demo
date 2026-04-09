@@ -1,0 +1,110 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  background: #f4f7fb;
+  color: #1f2937;
+}
+.container {
+  width: min(1150px, 92vw);
+  margin: 24px auto 40px;
+}
+.hero h1 { margin: 0 0 8px; }
+.hero p { margin: 0 0 18px; color: #4b5563; }
+.card {
+  background: white;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+.layout {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 18px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+label { display: block; margin-bottom: 6px; font-weight: 700; }
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+.id-row, .button-row {
+  display: flex;
+  gap: 10px;
+}
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: #2563eb;
+  color: white;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+button:hover { filter: brightness(1.05); }
+.status-box, .result, .rule-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.log-box {
+  margin-top: 14px;
+  min-height: 110px;
+  max-height: 220px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.video-wrap {
+  position: relative;
+  aspect-ratio: 16/9;
+  width: 100%;
+  background: #0f172a;
+  border-radius: 16px;
+  overflow: hidden;
+}
+video, canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.remote-panel {
+  border-radius: 18px;
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  background: #e5e7eb;
+  padding: 20px;
+  text-align: center;
+  transition: 0.25s ease;
+}
+.remote-big {
+  font-size: 2rem;
+  font-weight: 800;
+}
+.remote-tip {
+  color: #4b5563;
+  margin-top: 10px;
+}
+@media (max-width: 900px) {
+  .layout, .grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PeerJS 手勢雙機互動 Demo</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="hero">
+      <h1>PeerJS 手勢雙機互動 Demo</h1>
+      <p>不用 Firebase，兩台裝置以 PeerJS 建立連線，傳送手勢結果到另一台。</p>
+    </header>
+
+    <section class="card">
+      <h2>1. 連線設定</h2>
+      <div class="grid">
+        <div>
+          <label>你的 Peer ID</label>
+          <div class="id-row">
+            <input id="myPeerId" readonly placeholder="初始化中..." />
+            <button id="copyMyIdBtn" type="button">複製</button>
+          </div>
+        </div>
+        <div>
+          <label>對方的 Peer ID</label>
+          <div class="id-row">
+            <input id="remotePeerId" placeholder="貼上另一台的 Peer ID" />
+            <button id="connectBtn" type="button">連線</button>
+          </div>
+        </div>
+      </div>
+      <div class="status-box">
+        <div><strong>連線狀態：</strong><span id="connStatus">未連線</span></div>
+        <div><strong>最後收到：</strong><span id="remoteGesture">-</span></div>
+      </div>
+      <div class="log-box" id="logBox"></div>
+    </section>
+
+    <section class="layout">
+      <section class="card">
+        <h2>2. 本機鏡頭與手勢</h2>
+        <div class="video-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <div class="result">
+          <div><strong>辨識結果：</strong><span id="localGesture">尚未辨識</span></div>
+          <div><strong>信心分數：</strong><span id="gestureScore">-</span></div>
+          <div><strong>左右手：</strong><span id="handedness">-</span></div>
+        </div>
+        <div class="button-row">
+          <button id="startCameraBtn" type="button">開啟相機</button>
+          <button id="sendNowBtn" type="button">手動送出目前手勢</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>3. 遠端互動回饋</h2>
+        <div class="remote-panel" id="remotePanel">
+          <div class="remote-big" id="remoteBig">等待對方手勢</div>
+          <div class="remote-tip">規則：👍 顯示綠色、✌️ 顯示藍色、🖐️ 顯示橘色</div>
+        </div>
+        <div class="rule-box">
+          <div>Thumb_Up → 綠色回饋</div>
+          <div>Victory → 藍色回饋</div>
+          <div>Open_Palm → 橘色回饋</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="card">
+      <h2>4. 使用方式</h2>
+      <ol>
+        <li>兩台裝置都用瀏覽器打開這個頁面。</li>
+        <li>每台都會自動拿到自己的 Peer ID。</li>
+        <li>把 A 裝置的 Peer ID 複製到 B，或反過來都可以。</li>
+        <li>按「連線」成功後，再按「開啟相機」。</li>
+        <li>鏡頭辨識到手勢時，會把手勢名稱送到另一台。</li>
+      </ol>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
