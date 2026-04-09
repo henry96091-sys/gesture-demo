@@ -32,8 +32,8 @@ let recognizer = null;
 let localStream = null;
 let latestGesture = null;
 let loopId = null;
-let recognizerReady = false;
 let lastVideoTime = -1;
+let recognizerReady = false;
 
 function log(msg) {
   const t = new Date().toLocaleTimeString();
@@ -98,8 +98,9 @@ function parseResult(result) {
     return;
   }
 
-  // 如果你畫面是鏡像，左右手顯示就反轉
   let handedness = handed?.categoryName || "-";
+
+  // 因為前鏡頭通常鏡像顯示，這裡直接反轉比較符合使用者直覺
   if (handedness === "Left") handedness = "Right";
   else if (handedness === "Right") handedness = "Left";
 
@@ -138,6 +139,7 @@ async function startCamera() {
       };
     });
 
+    // 等 video 真正有尺寸後再同步 canvas 大小
     setTimeout(() => {
       overlayCanvas.width = localVideo.videoWidth || 640;
       overlayCanvas.height = localVideo.videoHeight || 480;
@@ -173,7 +175,7 @@ function startLoop() {
           overlayCanvas.height = localVideo.videoHeight;
         }
 
-        // 避免同一幀重複辨識
+        // 避免同一幀重複跑
         if (localVideo.currentTime !== lastVideoTime) {
           lastVideoTime = localVideo.currentTime;
 
