@@ -10,10 +10,6 @@ const connectBtn = document.getElementById("connectBtn");
 const startCameraBtn = document.getElementById("startCameraBtn");
 const sendGestureBtn = document.getElementById("sendGestureBtn");
 
-const peerStatus = document.getElementById("peerStatus");
-const dataStatus = document.getElementById("dataStatus");
-const mediaStatus = document.getElementById("mediaStatus");
-
 const gestureNow = document.getElementById("gestureNow");
 const handednessNow = document.getElementById("handednessNow");
 const scoreNow = document.getElementById("scoreNow");
@@ -33,7 +29,6 @@ let localStream = null;
 let latestGesture = null;
 let loopId = null;
 let lastVideoTime = -1;
-let recognizerReady = false;
 
 function log(msg) {
   const t = new Date().toLocaleTimeString();
@@ -45,7 +40,7 @@ function log(msg) {
 async function initRecognizer() {
   if (recognizer) return recognizer;
 
-  log("載入手勢辨識模型中...");
+  log("載入手勢模型中...");
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
   );
@@ -59,8 +54,7 @@ async function initRecognizer() {
     numHands: 2
   });
 
-  recognizerReady = true;
-  log("手勢辨識模型已載入");
+  log("手勢模型已載入");
   return recognizer;
 }
 
@@ -100,7 +94,7 @@ function parseResult(result) {
 
   let handedness = handed?.categoryName || "-";
 
-  // 因為前鏡頭通常鏡像顯示，這裡直接反轉比較符合使用者直覺
+  // 因為 localVideo 是鏡像顯示，所以這裡反轉比較符合直覺
   if (handedness === "Left") handedness = "Right";
   else if (handedness === "Right") handedness = "Left";
 
@@ -120,7 +114,7 @@ async function startCamera() {
     localStream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 640 },
-        height: { ideal: 480 },
+        height: { ideal: 360 },
         facingMode: "user"
       },
       audio: false
@@ -130,20 +124,13 @@ async function startCamera() {
 
     await new Promise((resolve) => {
       localVideo.onloadedmetadata = async () => {
-        try {
-          await localVideo.play();
-        } catch (e) {
-          log("localVideo.play() 失敗：" + e.message);
-        }
+        await localVideo.play();
         resolve();
       };
     });
 
-    // 等 video 真正有尺寸後再同步 canvas 大小
-    setTimeout(() => {
-      overlayCanvas.width = localVideo.videoWidth || 640;
-      overlayCanvas.height = localVideo.videoHeight || 480;
-    }, 300);
+    overlayCanvas.width = localVideo.videoWidth || 640;
+    overlayCanvas.height = localVideo.videoHeight || 360;
 
     await initRecognizer();
     startLoop();
@@ -151,7 +138,7 @@ async function startCamera() {
     log("相機已開啟");
   } catch (e) {
     log("開啟相機失敗：" + e.message);
-    alert("相機開啟失敗，請確認 HTTPS、相機權限，並重新整理後再試。");
+    alert("相機開啟失敗，請確認 HTTPS 與權限。");
   }
 }
 
@@ -161,23 +148,21 @@ function startLoop() {
   const run = () => {
     try {
       if (
-        recognizerReady &&
-        localVideo &&
+        recognizer &&
         localVideo.readyState >= 2 &&
         localVideo.videoWidth > 0 &&
         localVideo.videoHeight > 0
       ) {
-        if (
-          overlayCanvas.width !== localVideo.videoWidth ||
-          overlayCanvas.height !== localVideo.videoHeight
-        ) {
-          overlayCanvas.width = localVideo.videoWidth;
-          overlayCanvas.height = localVideo.videoHeight;
-        }
-
-        // 避免同一幀重複跑
         if (localVideo.currentTime !== lastVideoTime) {
           lastVideoTime = localVideo.currentTime;
+
+          if (
+            overlayCanvas.width !== localVideo.videoWidth ||
+            overlayCanvas.height !== localVideo.videoHeight
+          ) {
+            overlayCanvas.width = localVideo.videoWidth;
+            overlayCanvas.height = localVideo.videoHeight;
+          }
 
           const result = recognizer.recognizeForVideo(
             localVideo,
@@ -198,98 +183,55 @@ function startLoop() {
   loopId = requestAnimationFrame(run);
 }
 
-function attachDataConnection(conn) {
-  dataConn = conn;
-  dataStatus.textContent = "已連線";
-  log("資料通道已連線：" + conn.peer);
-
-  conn.on("data", (data) => {
-    if (data.type === "gesture") {
-      remoteGestureText.textContent =
-        `${data.name}（${data.handedness} 手，${data.score}）`;
-    }
-  });
-
-  conn.on("close", () => {
-    dataStatus.textContent = "已中斷";
-    log("資料通道已中斷");
-  });
-
-  conn.on("error", (err) => {
-    log("資料通道錯誤：" + err.message);
-  });
-}
-
-function attachMediaCall(call) {
-  mediaCall = call;
-  mediaStatus.textContent = "連線中";
-  log("收到 / 建立視訊通話：" + call.peer);
-
-  call.on("stream", (remoteStream) => {
-    remoteVideo.srcObject = remoteStream;
-    mediaStatus.textContent = "已連線";
-    log("已收到遠端影像");
-  });
-
-  call.on("close", () => {
-    mediaStatus.textContent = "已中斷";
-    log("視訊通話已中斷");
-  });
-
-  call.on("error", (err) => {
-    mediaStatus.textContent = "錯誤";
-    log("視訊通話錯誤：" + err.message);
-  });
-}
-
 function createPeer() {
-  if (peer) {
-    log("Peer 已建立，不需重複建立");
-    return;
-  }
+  if (peer) return;
 
   peer = new Peer();
 
   peer.on("open", (id) => {
     myId.value = id;
-    peerStatus.textContent = "已建立";
     log("我的 Peer ID：" + id);
   });
 
   peer.on("connection", (conn) => {
-    log("收到資料連線請求：" + conn.peer);
-    attachDataConnection(conn);
+    dataConn = conn;
+    log("收到資料連線：" + conn.peer);
+
+    conn.on("data", (data) => {
+      if (data.type === "gesture") {
+        remoteGestureText.textContent =
+          `${data.name}（${data.handedness} 手，${data.score}）`;
+      }
+    });
   });
 
   peer.on("call", (call) => {
     if (!localStream) {
-      alert("請先按「開啟相機」再接聽");
-      log("尚未開啟相機，無法接聽視訊");
+      log("尚未開相機，無法接聽視訊");
       return;
     }
+
     call.answer(localStream);
-    attachMediaCall(call);
+    mediaCall = call;
+
+    call.on("stream", (remoteStream) => {
+      remoteVideo.srcObject = remoteStream;
+    });
   });
 
   peer.on("error", (err) => {
-    peerStatus.textContent = "錯誤";
     log("Peer 錯誤：" + err.message);
-  });
-
-  peer.on("disconnected", () => {
-    peerStatus.textContent = "已中斷";
-    log("Peer 已中斷");
   });
 }
 
 function connectPeer() {
   if (!peer) {
-    alert("請先按「建立我的 ID」");
+    alert("請先建立我的 ID");
     return;
   }
 
   if (!localStream) {
-    alert("請先按「開啟相機」");
+    alert("請先開啟相機");
     return;
   }
 
@@ -299,17 +241,29 @@ function connectPeer() {
     return;
   }
 
-  const conn = peer.connect(target, { reliable: true });
-  conn.on("open", () => attachDataConnection(conn));
-  conn.on("error", (err) => log("資料連線失敗：" + err.message));
+  dataConn = peer.connect(target);
 
-  const call = peer.call(target, localStream);
-  attachMediaCall(call);
+  dataConn.on("open", () => {
+    log("資料連線成功：" + target);
+  });
+
+  dataConn.on("data", (data) => {
+    if (data.type === "gesture") {
+      remoteGestureText.textContent =
+        `${data.name}（${data.handedness} 手，${data.score}）`;
+    }
+  });
+
+  mediaCall = peer.call(target, localStream);
+
+  mediaCall.on("stream", (remoteStream) => {
+    remoteVideo.srcObject = remoteStream;
+  });
 }
 
 function sendGesture() {
   if (!dataConn || !dataConn.open) {
-    alert("尚未和對方建立資料連線");
+    alert("尚未建立資料連線");
     return;
   }
 
@@ -323,7 +277,7 @@ function sendGesture() {
     ...latestGesture
   });
 
-  log("已送出手勢：" + latestGesture.name);
+  log("送出手勢：" + latestGesture.name);
 }
 
 createPeerBtn.addEventListener("click", createPeer);
