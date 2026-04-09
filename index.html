@@ -2,90 +2,66 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PeerJS 雙視訊手勢互動 Demo</title>
+
+  <!-- 🔥 關鍵：防止 iPad / 手機放大 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  <title>手勢互動系統</title>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
-  <main class="container">
-    <h1>PeerJS 雙視訊手勢互動 Demo</h1>
-    <p class="subtitle">雙裝置即時影像 + 手勢辨識 + 手勢同步</p>
+  <div class="container">
 
-    <section class="card">
-      <h2>1. 連線設定</h2>
-      <div class="grid">
-        <div>
-          <label>我的 ID</label>
-          <div class="inline">
-            <input id="myId" readonly />
-            <button id="createPeerBtn">建立我的 ID</button>
-          </div>
-        </div>
+    <h1>手勢互動系統</h1>
 
-        <div>
-          <label>要連線的對方 ID</label>
-          <div class="inline">
-            <input id="remoteId" placeholder="貼上另一台的 ID" />
-            <button id="connectBtn">連線</button>
-          </div>
-        </div>
-      </div>
+    <div class="layout">
 
-      <div class="status">
-        <div><strong>Peer 狀態：</strong><span id="peerStatus">尚未建立</span></div>
-        <div><strong>資料連線：</strong><span id="dataStatus">未連線</span></div>
-        <div><strong>視訊連線：</strong><span id="mediaStatus">未連線</span></div>
-      </div>
-    </section>
+      <!-- 本機 -->
+      <div class="card">
+        <h2>本機畫面</h2>
 
-    <section class="layout">
-      <section class="card">
-        <h2>2. 本機畫面</h2>
         <div class="videoWrap">
           <video id="localVideo" autoplay playsinline muted></video>
           <canvas id="overlayCanvas"></canvas>
         </div>
-        <div class="result">
-          <div><strong>目前辨識：</strong><span id="gestureNow">尚未辨識</span></div>
-          <div><strong>左右手：</strong><span id="handednessNow">-</span></div>
-          <div><strong>信心分數：</strong><span id="scoreNow">-</span></div>
-        </div>
-        <div class="btnRow">
-          <button id="startCameraBtn">開啟相機</button>
-          <button id="sendGestureBtn">手動送出目前手勢</button>
-        </div>
-      </section>
 
-      <section class="card">
-        <h2>3. 遠端畫面</h2>
+        <button id="startCameraBtn">開啟相機</button>
+      </div>
+
+      <!-- 遠端 -->
+      <div class="card">
+        <h2>遠端畫面</h2>
+
         <div class="videoWrap">
           <video id="remoteVideo" autoplay playsinline></video>
         </div>
-        <div class="result">
-          <div><strong>收到對方手勢：</strong><span id="remoteGestureText">尚未收到</span></div>
-        </div>
-      </section>
-    </section>
+      </div>
 
-    <section class="card">
-      <h2>4. 操作流程</h2>
-      <ol>
-        <li>兩台都打開這個 HTTPS 網址</li>
-        <li>兩邊先按「建立我的 ID」</li>
-        <li>兩邊都按「開啟相機」並允許權限</li>
-        <li>A 把自己的 ID 傳給 B</li>
-        <li>B 貼上 A 的 ID，按「連線」</li>
-        <li>連上後就會看到對方畫面，也可以送出手勢</li>
-      </ol>
-    </section>
+    </div>
 
-    <section class="card">
-      <h2>5. Log</h2>
-      <pre id="log"></pre>
-    </section>
-  </main>
+    <div class="card">
+      <h2>連線</h2>
+
+      <button id="createPeerBtn">建立我的 ID</button>
+      <input id="myId" placeholder="我的 ID" />
+
+      <input id="remoteId" placeholder="輸入對方 ID" />
+      <button id="connectBtn">連線</button>
+
+      <button id="sendGestureBtn">送出手勢</button>
+    </div>
+
+    <div class="card">
+      <h2>手勢</h2>
+      <div id="gestureNow">尚未辨識</div>
+      <div id="remoteGestureText">尚未收到</div>
+    </div>
+
+  </div>
 
   <script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
   <script type="module" src="app.js"></script>
+
 </body>
 </html>
