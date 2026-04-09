@@ -14,8 +14,8 @@ const gestureNow = document.getElementById("gestureNow");
 const handednessNow = document.getElementById("handednessNow");
 const scoreNow = document.getElementById("scoreNow");
 const remoteGestureText = document.getElementById("remoteGestureText");
-
 const logEl = document.getElementById("log");
+
 const localVideo = document.getElementById("localVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const overlayCanvas = document.getElementById("overlayCanvas");
@@ -60,11 +60,9 @@ async function initRecognizer() {
 
 function drawLandmarks(result) {
   ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
   if (!result?.landmarks?.length) return;
 
   ctx.fillStyle = "#38bdf8";
-
   result.landmarks.forEach((hand) => {
     hand.forEach((p) => {
       ctx.beginPath();
@@ -93,8 +91,6 @@ function parseResult(result) {
   }
 
   let handedness = handed?.categoryName || "-";
-
-  // 因為 localVideo 是鏡像顯示，所以這裡反轉比較符合直覺
   if (handedness === "Left") handedness = "Right";
   else if (handedness === "Right") handedness = "Left";
 
@@ -183,10 +179,57 @@ function startLoop() {
   loopId = requestAnimationFrame(run);
 }
 
-function createPeer() {
-  if (peer) return;
+function setupDataConn(conn) {
+  dataConn = conn;
+  log("資料連線成功：" + conn.peer);
 
-  peer = new Peer();
+  conn.on("open", () => {
+    log("資料通道 open：" + conn.peer);
+  });
+
+  conn.on("data", (data) => {
+    if (data.type === "gesture") {
+      remoteGestureText.textContent =
+        `${data.name}（${data.handedness} 手，${data.score}）`;
+    }
+  });
+
+  conn.on("close", () => {
+    log("資料通道已關閉");
+  });
+
+  conn.on("error", (err) => {
+    log("資料通道錯誤：" + err.message);
+  });
+}
+
+function setupMediaCall(call) {
+  mediaCall = call;
+  log("視訊連線建立：" + call.peer);
+
+  call.on("stream", (remoteStream) => {
+    log("收到遠端視訊流");
+    remoteVideo.srcObject = remoteStream;
+  });
+
+  call.on("close", () => {
+    log("視訊通話已關閉");
+  });
+
+  call.on("error", (err) => {
+    log("視訊通話錯誤：" + err.message);
+  });
+}
+
+function createPeer() {
+  if (peer) {
+    log("Peer 已存在，不重建");
+    return;
+  }
+
+  peer = new Peer({
+    debug: 2
+  });
 
   peer.on("open", (id) => {
     myId.value = id;
@@ -194,44 +237,43 @@ function createPeer() {
   });
 
   peer.on("connection", (conn) => {
-    dataConn = conn;
-    log("收到資料連線：" + conn.peer);
-
-    conn.on("data", (data) => {
-      if (data.type === "gesture") {
-        remoteGestureText.textContent =
-          `${data.name}（${data.handedness} 手，${data.score}）`;
-      }
-    });
+    log("收到資料連線請求：" + conn.peer);
+    setupDataConn(conn);
   });
 
   peer.on("call", (call) => {
+    log("收到視訊通話請求：" + call.peer);
+
     if (!localStream) {
-      log("尚未開相機，無法接聽視訊");
+      log("尚未開啟相機，無法接聽");
       return;
     }
 
     call.answer(localStream);
-    mediaCall = call;
-
-    call.on("stream", (remoteStream) => {
-      remoteVideo.srcObject = remoteStream;
-    });
+    setupMediaCall(call);
   });
 
   peer.on("error", (err) => {
-    log("Peer 錯誤：" + err.message);
+    log("Peer 錯誤：" + err.type + " / " + err.message);
+  });
+
+  peer.on("disconnected", () => {
+    log("Peer 已斷線");
+  });
+
+  peer.on("close", () => {
+    log("Peer 已關閉");
   });
 }
 
 function connectPeer() {
   if (!peer) {
-    alert("請先建立我的 ID");
+    alert("請先按『建立我的 ID』");
     return;
   }
 
   if (!localStream) {
-    alert("請先開啟相機");
+    alert("請先按『開啟相機』");
     return;
   }
 
@@ -241,24 +283,28 @@ function connectPeer() {
     return;
   }
 
-  dataConn = peer.connect(target);
+  if (target === myId.value.trim()) {
+    alert("不能連自己");
+    return;
+  }
 
-  dataConn.on("open", () => {
-    log("資料連線成功：" + target);
+  log("開始連線到：" + target);
+
+  const conn = peer.connect(target, {
+    reliable: true
   });
 
-  dataConn.on("data", (data) => {
-    if (data.type === "gesture") {
-      remoteGestureText.textContent =
-        `${data.name}（${data.handedness} 手，${data.score}）`;
-    }
+  conn.on("open", () => {
+    log("主動發起的資料通道已開啟：" + target);
+    setupDataConn(conn);
   });
 
-  mediaCall = peer.call(target, localStream);
-
-  mediaCall.on("stream", (remoteStream) => {
-    remoteVideo.srcObject = remoteStream;
+  conn.on("error", (err) => {
+    log("主動連線失敗：" + err.message);
   });
+
+  const call = peer.call(target, localStream);
+  setupMediaCall(call);
 }
 
 function sendGesture() {
