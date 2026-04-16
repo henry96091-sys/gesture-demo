@@ -30,6 +30,9 @@ let latestGesture = null;
 let loopId = null;
 let lastVideoTime = -1;
 
+// 防抖：連續幾幀一樣才更新
+let recentCounts = [];
+
 function log(msg) {
   const t = new Date().toLocaleTimeString();
   logEl.textContent += `[${t}] ${msg}\n`;
@@ -83,37 +86,70 @@ function drawLandmarks(result) {
 function getDisplayHandedness(rawHandedness) {
   let handedness = rawHandedness || "-";
 
-  // 因本機畫面鏡像顯示，左右反轉較符合使用者直覺
+  // 因本機畫面鏡像顯示，左右反轉較符合直覺
   if (handedness === "Left") handedness = "Right";
   else if (handedness === "Right") handedness = "Left";
 
   return handedness;
 }
 
-function countFingers(landmarks, handedness) {
-  let count = 0;
+// 四指：用 tip / dip / pip 三層關係判斷，比只看一層穩
+function isFingerUp(landmarks, tip, dip, pip) {
+  return (
+    landmarks[tip].y < landmarks[dip].y &&
+    landmarks[dip].y < landmarks[pip].y
+  );
+}
 
-  // 食指
-  if (landmarks[8].y < landmarks[6].y) count++;
+// 拇指：依左右手用 x 方向判斷，但加一點距離閾值避免亂跳
+function isThumbUp(landmarks, rawHandedness) {
+  const thumbTip = landmarks[4];
+  const thumbIp = landmarks[3];
+  const threshold = 0.02;
 
-  // 中指
-  if (landmarks[12].y < landmarks[10].y) count++;
-
-  // 無名指
-  if (landmarks[16].y < landmarks[14].y) count++;
-
-  // 小指
-  if (landmarks[20].y < landmarks[18].y) count++;
-
-  // 大拇指：依左右手方向判斷
-  // 注意：這裡 handedness 是模型原始 handedness，不是鏡像後顯示用
-  if (handedness === "Right") {
-    if (landmarks[4].x < landmarks[3].x) count++;
-  } else if (handedness === "Left") {
-    if (landmarks[4].x > landmarks[3].x) count++;
+  if (rawHandedness === "Right") {
+    return thumbTip.x < thumbIp.x - threshold;
+  }
+  if (rawHandedness === "Left") {
+    return thumbTip.x > thumbIp.x + threshold;
   }
 
+  return false;
+}
+
+function countFingers(landmarks, rawHandedness) {
+  let count = 0;
+
+  if (isThumbUp(landmarks, rawHandedness)) count++;
+
+  if (isFingerUp(landmarks, 8, 7, 6)) count++;    // 食指
+  if (isFingerUp(landmarks, 12, 11, 10)) count++; // 中指
+  if (isFingerUp(landmarks, 16, 15, 14)) count++; // 無名指
+  if (isFingerUp(landmarks, 20, 19, 18)) count++; // 小指
+
   return count;
+}
+
+function getStableCount(newCount) {
+  recentCounts.push(newCount);
+  if (recentCounts.length > 5) recentCounts.shift();
+
+  const freq = {};
+  for (const c of recentCounts) {
+    freq[c] = (freq[c] || 0) + 1;
+  }
+
+  let best = newCount;
+  let bestFreq = 0;
+
+  for (const key in freq) {
+    if (freq[key] > bestFreq) {
+      bestFreq = freq[key];
+      best = Number(key);
+    }
+  }
+
+  return best;
 }
 
 function parseResult(result) {
@@ -130,14 +166,16 @@ function parseResult(result) {
     return;
   }
 
-  const fingerNumber = countFingers(landmarks, rawHanded);
+  const counted = countFingers(landmarks, rawHanded);
+  const stableCount = getStableCount(counted);
+
   const confidence = gesture?.score != null
     ? Number(gesture.score).toFixed(2)
     : "-";
 
   latestGesture = {
-    name: gesture?.categoryName || "Finger_Count",
-    display: fingerNumber.toString(),
+    name: "Finger_Count",
+    display: stableCount.toString(),
     score: confidence,
     handedness: displayHandedness
   };
@@ -367,11 +405,6 @@ function sendGesture() {
 
   log("送出數字：" + latestGesture.display);
 }
-
-createPeerBtn.addEventListener("click", createPeer);
-connectBtn.addEventListener("click", connectPeer);
-startCameraBtn.addEventListener("click", startCamera);
-sendGestureBtn.addEventListener("click", sendGesture);
 
 createPeerBtn.addEventListener("click", createPeer);
 connectBtn.addEventListener("click", connectPeer);
