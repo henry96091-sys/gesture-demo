@@ -60,9 +60,11 @@ async function initRecognizer() {
 
 function drawLandmarks(result) {
   ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
   if (!result?.landmarks?.length) return;
 
   ctx.fillStyle = "#38bdf8";
+
   result.landmarks.forEach((hand) => {
     hand.forEach((p) => {
       ctx.beginPath();
@@ -91,16 +93,31 @@ function parseResult(result) {
   }
 
   let handedness = handed?.categoryName || "-";
+
+  // 本機畫面是鏡像，所以左右手反轉，比較符合直覺
   if (handedness === "Left") handedness = "Right";
   else if (handedness === "Right") handedness = "Left";
 
+  const rawName = gesture.categoryName || "未知手勢";
+  let displayValue = rawName;
+
+  // 手勢轉數字
+  if (rawName === "Open_Palm") {
+    displayValue = "5";
+  } else if (rawName === "Closed_Fist") {
+    displayValue = "0";
+  } else if (rawName === "Victory") {
+    displayValue = "2";
+  }
+
   latestGesture = {
-    name: gesture.categoryName || "未知手勢",
+    name: rawName,
+    display: displayValue,
     score: Number(gesture.score || 0).toFixed(2),
     handedness
   };
 
-  gestureNow.textContent = latestGesture.name;
+  gestureNow.textContent = latestGesture.display;
   handednessNow.textContent = latestGesture.handedness;
   scoreNow.textContent = latestGesture.score;
 }
@@ -134,7 +151,7 @@ async function startCamera() {
     log("相機已開啟");
   } catch (e) {
     log("開啟相機失敗：" + e.message);
-    alert("相機開啟失敗，請確認 HTTPS 與權限。");
+    alert("相機開啟失敗，請確認 HTTPS 與相機權限。");
   }
 }
 
@@ -190,7 +207,7 @@ function setupDataConn(conn) {
   conn.on("data", (data) => {
     if (data.type === "gesture") {
       remoteGestureText.textContent =
-        `${data.name}（${data.handedness} 手，${data.score}）`;
+        `${data.display || data.name}（${data.handedness} 手，${data.score}）`;
     }
   });
 
@@ -245,7 +262,7 @@ function createPeer() {
     log("收到視訊通話請求：" + call.peer);
 
     if (!localStream) {
-      log("尚未開啟相機，無法接聽");
+      log("尚未開相機，無法接聽");
       return;
     }
 
@@ -254,7 +271,7 @@ function createPeer() {
   });
 
   peer.on("error", (err) => {
-    log("Peer 錯誤：" + err.type + " / " + err.message);
+    log("Peer 錯誤：" + (err.message || err.type || "未知錯誤"));
   });
 
   peer.on("disconnected", () => {
@@ -323,7 +340,7 @@ function sendGesture() {
     ...latestGesture
   });
 
-  log("送出手勢：" + latestGesture.name);
+  log("送出手勢：" + latestGesture.display);
 }
 
 createPeerBtn.addEventListener("click", createPeer);
