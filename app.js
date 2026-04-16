@@ -1,5 +1,5 @@
 import {
-  GestureRecognizer,
+  HandLandmarker,
   FilesetResolver
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
@@ -24,13 +24,13 @@ const ctx = overlayCanvas.getContext("2d");
 let peer = null;
 let dataConn = null;
 let mediaCall = null;
-let recognizer = null;
+let handLandmarker = null;
 let localStream = null;
 let latestGesture = null;
 let loopId = null;
 let lastVideoTime = -1;
 
-// 防抖：連續幾幀一樣才更新
+// 防抖：最近幾幀取眾數
 let recentCounts = [];
 
 function log(msg) {
@@ -40,25 +40,25 @@ function log(msg) {
   console.log(msg);
 }
 
-async function initRecognizer() {
-  if (recognizer) return recognizer;
+async function initHandLandmarker() {
+  if (handLandmarker) return handLandmarker;
 
-  log("載入手勢模型中...");
+  log("載入 Hand Landmarker...");
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
   );
 
-  recognizer = await GestureRecognizer.createFromOptions(vision, {
+  handLandmarker = await HandLandmarker.createFromOptions(vision, {
     baseOptions: {
       modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task"
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
     },
     runningMode: "VIDEO",
     numHands: 1
   });
 
-  log("手勢模型已載入");
-  return recognizer;
+  log("Hand Landmarker 已載入");
+  return handLandmarker;
 }
 
 function drawLandmarks(result) {
@@ -93,7 +93,6 @@ function getDisplayHandedness(rawHandedness) {
   return handedness;
 }
 
-// 四指：用 tip / dip / pip 三層關係判斷，比只看一層穩
 function isFingerUp(landmarks, tip, dip, pip) {
   return (
     landmarks[tip].y < landmarks[dip].y &&
@@ -101,17 +100,25 @@ function isFingerUp(landmarks, tip, dip, pip) {
   );
 }
 
-// 拇指：依左右手用 x 方向判斷，但加一點距離閾值避免亂跳
 function isThumbUp(landmarks, rawHandedness) {
   const thumbTip = landmarks[4];
   const thumbIp = landmarks[3];
-  const threshold = 0.02;
+  const thumbMcp = landmarks[2];
+  const threshold = 0.015;
 
+  // 拇指不只看一個關節，稍微穩一點
   if (rawHandedness === "Right") {
-    return thumbTip.x < thumbIp.x - threshold;
+    return (
+      thumbTip.x < thumbIp.x - threshold &&
+      thumbIp.x < thumbMcp.x - threshold / 2
+    );
   }
+
   if (rawHandedness === "Left") {
-    return thumbTip.x > thumbIp.x + threshold;
+    return (
+      thumbTip.x > thumbIp.x + threshold &&
+      thumbIp.x > thumbMcp.x + threshold / 2
+    );
   }
 
   return false;
@@ -121,7 +128,6 @@ function countFingers(landmarks, rawHandedness) {
   let count = 0;
 
   if (isThumbUp(landmarks, rawHandedness)) count++;
-
   if (isFingerUp(landmarks, 8, 7, 6)) count++;    // 食指
   if (isFingerUp(landmarks, 12, 11, 10)) count++; // 中指
   if (isFingerUp(landmarks, 16, 15, 14)) count++; // 無名指
@@ -153,8 +159,11 @@ function getStableCount(newCount) {
 }
 
 function parseResult(result) {
-  const gesture = result?.gestures?.[0]?.[0];
-  const rawHanded = result?.handednesses?.[0]?.[0]?.categoryName || "-";
+  const rawHanded =
+    result?.handednesses?.[0]?.[0]?.displayName ||
+    result?.handednesses?.[0]?.[0]?.categoryName ||
+    "-";
+
   const displayHandedness = getDisplayHandedness(rawHanded);
   const landmarks = result?.landmarks?.[0];
 
@@ -169,14 +178,10 @@ function parseResult(result) {
   const counted = countFingers(landmarks, rawHanded);
   const stableCount = getStableCount(counted);
 
-  const confidence = gesture?.score != null
-    ? Number(gesture.score).toFixed(2)
-    : "-";
-
   latestGesture = {
     name: "Finger_Count",
     display: stableCount.toString(),
-    score: confidence,
+    score: "-",
     handedness: displayHandedness
   };
 
@@ -208,7 +213,7 @@ async function startCamera() {
     overlayCanvas.width = localVideo.videoWidth || 640;
     overlayCanvas.height = localVideo.videoHeight || 360;
 
-    await initRecognizer();
+    await initHandLandmarker();
     startLoop();
 
     log("相機已開啟");
@@ -224,7 +229,7 @@ function startLoop() {
   const run = () => {
     try {
       if (
-        recognizer &&
+        handLandmarker &&
         localVideo.readyState >= 2 &&
         localVideo.videoWidth > 0 &&
         localVideo.videoHeight > 0
@@ -240,7 +245,7 @@ function startLoop() {
             overlayCanvas.height = localVideo.videoHeight;
           }
 
-          const result = recognizer.recognizeForVideo(
+          const result = handLandmarker.detectForVideo(
             localVideo,
             performance.now()
           );
@@ -270,7 +275,7 @@ function setupDataConn(conn) {
   conn.on("data", (data) => {
     if (data.type === "gesture") {
       remoteGestureText.textContent =
-        `${data.display || data.name}（${data.handedness} 手，${data.score}）`;
+        `${data.display || data.name}（${data.handedness} 手）`;
     }
   });
 
