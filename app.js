@@ -51,7 +51,7 @@ async function initRecognizer() {
         "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task"
     },
     runningMode: "VIDEO",
-    numHands: 2
+    numHands: 1
   });
 
   log("手勢模型已載入");
@@ -80,11 +80,49 @@ function drawLandmarks(result) {
   });
 }
 
+function getDisplayHandedness(rawHandedness) {
+  let handedness = rawHandedness || "-";
+
+  // 因本機畫面鏡像顯示，左右反轉較符合使用者直覺
+  if (handedness === "Left") handedness = "Right";
+  else if (handedness === "Right") handedness = "Left";
+
+  return handedness;
+}
+
+function countFingers(landmarks, handedness) {
+  let count = 0;
+
+  // 食指
+  if (landmarks[8].y < landmarks[6].y) count++;
+
+  // 中指
+  if (landmarks[12].y < landmarks[10].y) count++;
+
+  // 無名指
+  if (landmarks[16].y < landmarks[14].y) count++;
+
+  // 小指
+  if (landmarks[20].y < landmarks[18].y) count++;
+
+  // 大拇指：依左右手方向判斷
+  // 注意：這裡 handedness 是模型原始 handedness，不是鏡像後顯示用
+  if (handedness === "Right") {
+    if (landmarks[4].x < landmarks[3].x) count++;
+  } else if (handedness === "Left") {
+    if (landmarks[4].x > landmarks[3].x) count++;
+  }
+
+  return count;
+}
+
 function parseResult(result) {
   const gesture = result?.gestures?.[0]?.[0];
-  const handed = result?.handednesses?.[0]?.[0];
+  const rawHanded = result?.handednesses?.[0]?.[0]?.categoryName || "-";
+  const displayHandedness = getDisplayHandedness(rawHanded);
+  const landmarks = result?.landmarks?.[0];
 
-  if (!gesture) {
+  if (!landmarks) {
     gestureNow.textContent = "尚未辨識";
     handednessNow.textContent = "-";
     scoreNow.textContent = "-";
@@ -92,29 +130,16 @@ function parseResult(result) {
     return;
   }
 
-  let handedness = handed?.categoryName || "-";
-
-  // 本機畫面是鏡像，所以左右手反轉，比較符合直覺
-  if (handedness === "Left") handedness = "Right";
-  else if (handedness === "Right") handedness = "Left";
-
-  const rawName = gesture.categoryName || "未知手勢";
-  let displayValue = rawName;
-
-  // 手勢轉數字
-  if (rawName === "Open_Palm") {
-    displayValue = "5";
-  } else if (rawName === "Closed_Fist") {
-    displayValue = "0";
-  } else if (rawName === "Victory") {
-    displayValue = "2";
-  }
+  const fingerNumber = countFingers(landmarks, rawHanded);
+  const confidence = gesture?.score != null
+    ? Number(gesture.score).toFixed(2)
+    : "-";
 
   latestGesture = {
-    name: rawName,
-    display: displayValue,
-    score: Number(gesture.score || 0).toFixed(2),
-    handedness
+    name: gesture?.categoryName || "Finger_Count",
+    display: fingerNumber.toString(),
+    score: confidence,
+    handedness: displayHandedness
   };
 
   gestureNow.textContent = latestGesture.display;
@@ -340,8 +365,13 @@ function sendGesture() {
     ...latestGesture
   });
 
-  log("送出手勢：" + latestGesture.display);
+  log("送出數字：" + latestGesture.display);
 }
+
+createPeerBtn.addEventListener("click", createPeer);
+connectBtn.addEventListener("click", connectPeer);
+startCameraBtn.addEventListener("click", startCamera);
+sendGestureBtn.addEventListener("click", sendGesture);
 
 createPeerBtn.addEventListener("click", createPeer);
 connectBtn.addEventListener("click", connectPeer);
